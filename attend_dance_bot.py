@@ -15,7 +15,7 @@ def start(update, context):
 
 def help_command(update, context):
     message="Thanks for using the bot!\n\
-    \\create_attendance to start your attendance list!"
+Use /create_attendance to start your attendance list!"
 
     context.bot.send_message(chat_id=update.effective_chat.id,
             text=message)
