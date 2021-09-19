@@ -8,10 +8,6 @@ with open("config.json") as json_data_file:
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 
-updater = Updater(token=data["bot"]["token"])
-
-
-dispatcher = updater.dispatcher
 
 def start(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, 
@@ -33,15 +29,22 @@ def end_attendance(update,context):
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="Deleting attendance")
 
-start_handler = CommandHandler('start', start)
-create_attendance_handler = CommandHandler('create_attendance', create_attendance)
-edit_attendance_handler = CommandHandler('edit_attendance', edit_attendance)
-end_attendance_handler = CommandHandler('end_attendance', end_attendance)
+def main():
+    updater = Updater(token=data["bot"]["token"])
 
-dispatcher.add_handler(start_handler)
-dispatcher.add_handler(create_attendance_handler)
-dispatcher.add_handler(edit_attendance_handler)
-dispatcher.add_handler(end_attendance_handler)
+    dispatcher = updater.dispatcher
 
-updater.start_polling()
+    start_handler = CommandHandler('start', start)
+    create_attendance_handler = CommandHandler('create_attendance', create_attendance)
+    edit_attendance_handler = CommandHandler('edit_attendance', edit_attendance)
+    end_attendance_handler = CommandHandler('end_attendance', end_attendance)
 
+    dispatcher.add_handler(start_handler)
+    dispatcher.add_handler(create_attendance_handler)
+    dispatcher.add_handler(edit_attendance_handler)
+    dispatcher.add_handler(end_attendance_handler)
+
+    updater.start_polling()
+
+if __name__ == "__main__":
+    main()
