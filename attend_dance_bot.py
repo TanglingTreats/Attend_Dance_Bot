@@ -16,7 +16,7 @@ with open("config.json") as json_data_file:
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 
-CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
+ENTER_DATE, ENTER_EVENT, ENTER_OPTIONS = range(3)
 
 def start(update: Update, context: CallbackContext):
     message = "I\'m here to help manage your attendance"
@@ -34,7 +34,29 @@ def create_attendance(update: Update, context: CallbackContext):
     prompt = "To start, please tell me the date of the event"
     update.message.reply_text(text=prompt)
 
-    return TYPING_CHOICE
+    return ENTER_DATE
+
+def retrieve_event_date(update: Update, context: CallbackContext):
+    text = update.message.text
+    reply = f'{text}'
+    update.message.reply_text(reply)
+    
+    return ENTER_EVENT
+
+def retrieve_event_detail(update: Update, context: CallbackContext):
+    text = update.message.text
+    reply = f'{text}'
+    update.message.reply_text(reply)
+
+    return ENTER_OPTIONS
+
+def retrieve_event_options(update: Update, context: CallbackContext):
+    text = update.message.text
+    reply = f'{text}'
+    update.message.reply_text(reply)
+
+    return ENTER_OPTIONS
+
 
 def edit_attendance(update: Update, context: CallbackContext):
    context.bot.send_message(chat_id=update.effective_chat.id,
@@ -44,14 +66,18 @@ def end_attendance(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="Deleting attendance")
 
+def done(update: Update, context: CallbackContext):
+    context.bot.send_message(chat_id=update.effective_chat.id,
+            text="You are done creating the attendance")
+
 def regular_choice(update: Update, context: CallbackContext) -> int:
     """Ask the user for info about the selected predefined choice."""
     text = update.message.text
     context.user_data['choice'] = text
-    reply = f'{text} is that correct?'
+    reply = f'{text}'
     update.message.reply_text(reply)
 
-    return TYPING_REPLY
+    return ENTER_EVENT
 
 def main():
     updater = Updater(token=data["bot"]["token"])
@@ -60,22 +86,33 @@ def main():
 
     start_handler = CommandHandler('start', start)
     help_handler = CommandHandler('help', help_command)
-    create_attendance_handler = CommandHandler('create_attendance', create_attendance)
-    edit_attendance_handler = CommandHandler('edit_attendance', edit_attendance)
-    end_attendance_handler = CommandHandler('end_attendance', end_attendance)
+    create_attendance_handler = CommandHandler('create_attendance',
+            create_attendance)
+    edit_attendance_handler = CommandHandler('edit_attendance',
+            edit_attendance)
+    end_attendance_handler = CommandHandler('end_attendance',
+            end_attendance)
 
     conv_handler = ConversationHandler(
         entry_points=[create_attendance_handler],
         states = {
-            CHOOSING: [],
-            TYPING_CHOICE: [
+            ENTER_DATE: [
                 MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), regular_choice
-                )
-               ],
-            TYPING_REPLY: [],
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_date
+                    )
+                ],
+            ENTER_EVENT: [
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_detail
+                    )
+                ],
+            ENTER_OPTIONS: [
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_options
+                    )
+                ],
         },
-        fallbacks=[],
+        fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
     )
 
 
