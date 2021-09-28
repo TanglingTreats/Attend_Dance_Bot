@@ -1,5 +1,6 @@
 import logging
 import json
+from datetime import datetime
 from telegram import Update
 from telegram.ext import (
         Updater,
@@ -16,7 +17,13 @@ with open("config.json") as json_data_file:
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 
-ENTER_DATE, ENTER_EVENT, ENTER_OPTIONS = range(3)
+messages = []
+
+option = {}
+options = []
+current_msg = {}
+
+ENTER_DATE, ENTER_EVENT, ENTER_OPTIONS, REQUIRE_REASON = range(4)
 
 END = ConversationHandler.END
 
@@ -33,15 +40,20 @@ Use /create_attendance to start your attendance list!"
             text=message)
 
 def create_attendance(update: Update, context: CallbackContext):
-    prompt = "To start, please tell me the date of the event"
+    #prompt = "To start, please tell me the date of the event E.g. 21 Aug 2021"
+    prompt = "To start, what's the event about?"
     update.message.reply_text(text=prompt)
 
-    return ENTER_DATE
+    return ENTER_EVENT
 
 def retrieve_event_date(update: Update, context: CallbackContext):
     text = update.message.text
     reply = f'Creating an event on {text}'
     update.message.reply_text(reply)
+
+    date_obj = datetime.strptime(text, "%d %b %Y")
+    print(date_obj)
+    current_msg['date'] = text
 
     message = "Next, what's the event about?"
     context.bot.send_message(chat_id=update.effective_chat.id,
@@ -54,6 +66,8 @@ def retrieve_event_detail(update: Update, context: CallbackContext):
     reply = f'Event is about: {text}'
     update.message.reply_text(reply)
     
+    current_msg['event_detail'] = text
+
     message = "Next, what's are your options for this attendance list?"
     context.bot.send_message(chat_id=update.effective_chat.id,
             text=message)
@@ -65,12 +79,27 @@ def retrieve_event_options(update: Update, context: CallbackContext):
     reply = f'\'{text}\' has been entered'
     update.message.reply_text(reply)
 
+    option["name"] = text
+
+    message = "Does this option require attendees\
+to supply additional information? (y/n)"
+    context.bot.send_message(chat_id=update.effective_chat.id,
+            text=message)
+
+    return REQUIRE_REASON
+
+def retrieve_option_reason(update: Update, context: CallbackContext):
+    text = update.message.text
+
+    option["require_reason"] = text
+
+    options.append(option)
+
     message = "Continue typing your options, if not, type \"Done\""
     context.bot.send_message(chat_id=update.effective_chat.id,
             text=message)
 
     return ENTER_OPTIONS
-
 
 def edit_attendance(update: Update, context: CallbackContext):
    context.bot.send_message(chat_id=update.effective_chat.id,
@@ -81,6 +110,9 @@ def end_attendance(update: Update, context: CallbackContext):
             text="Deleting attendance")
 
 def done(update: Update, context: CallbackContext):
+    print(current_msg)
+    print(options)
+
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="You are done creating the attendance")
     return END
@@ -126,6 +158,11 @@ def main():
                     Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_options
                     )
                 ],
+            REQUIRE_REASON: [
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_option_reason
+                    )
+                ]
         },
         fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
     )
