@@ -1,7 +1,12 @@
 import logging
 import json
 from datetime import datetime
-from telegram import Update
+from telegram import (
+        Update, 
+        ReplyKeyboardMarkup, 
+        InlineKeyboardMarkup, 
+        InlineKeyboardButton
+    )
 from telegram.ext import (
         Updater,
         CommandHandler,
@@ -16,6 +21,15 @@ with open("config.json") as json_data_file:
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
+
+keeb_options = [['Yes', 'No']]
+markup_keeb = ReplyKeyboardMarkup(keeb_options, one_time_keyboard=True)
+
+buttons = [[
+        InlineKeyboardButton(text=keeb_options[0][0], callback_data='y'),
+        InlineKeyboardButton(text=keeb_options[0][1], callback_data='n')
+    ]]
+inline_keeb = InlineKeyboardMarkup(buttons)
 
 messages = []
 
@@ -81,10 +95,11 @@ def retrieve_event_options(update: Update, context: CallbackContext):
 
     option["name"] = text
 
-    message = "Does this option require attendees\
-to supply additional information? (y/n)"
-    context.bot.send_message(chat_id=update.effective_chat.id,
-            text=message)
+    message = "Does this option require attendees \
+to supply additional information?"
+
+    # TODO: Use inline keyboard for messages and get value from buttons
+    update.message.reply_text(message, reply_markup=markup_keeb)
 
     return REQUIRE_REASON
 
@@ -110,8 +125,9 @@ def end_attendance(update: Update, context: CallbackContext):
             text="Deleting attendance")
 
 def done(update: Update, context: CallbackContext):
+    current_msg["options"] = options
+
     print(current_msg)
-    print(options)
 
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="You are done creating the attendance")
