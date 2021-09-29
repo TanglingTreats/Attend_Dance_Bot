@@ -13,7 +13,8 @@ from telegram.ext import (
         ConversationHandler,
         MessageHandler,
         Filters,
-        CallbackContext
+        CallbackContext,
+        CallbackQueryHandler
     )
 
 with open("config.json") as json_data_file:
@@ -54,7 +55,6 @@ Use /create_attendance to start your attendance list!"
             text=message)
 
 def create_attendance(update: Update, context: CallbackContext):
-    #prompt = "To start, please tell me the date of the event E.g. 21 Aug 2021"
     prompt = "To start, what's the event about?"
     update.message.reply_text(text=prompt)
 
@@ -89,6 +89,8 @@ def retrieve_event_detail(update: Update, context: CallbackContext):
     return ENTER_OPTIONS
 
 def retrieve_event_options(update: Update, context: CallbackContext):
+    global option
+    option = {}
     text = update.message.text
     reply = f'\'{text}\' has been entered'
     update.message.reply_text(reply)
@@ -98,13 +100,12 @@ def retrieve_event_options(update: Update, context: CallbackContext):
     message = "Does this option require attendees \
 to supply additional information?"
 
-    # TODO: Use inline keyboard for messages and get value from buttons
-    update.message.reply_text(message, reply_markup=markup_keeb)
+    update.message.reply_text(message, reply_markup=inline_keeb)
 
     return REQUIRE_REASON
 
 def retrieve_option_reason(update: Update, context: CallbackContext):
-    text = update.message.text
+    text = update.callback_query.data
 
     option["require_reason"] = text
 
@@ -118,11 +119,11 @@ def retrieve_option_reason(update: Update, context: CallbackContext):
 
 def edit_attendance(update: Update, context: CallbackContext):
    context.bot.send_message(chat_id=update.effective_chat.id,
-            text="Editing attendance")
+            text="Editing attendance. This is still a WIP!")
     
 def end_attendance(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id,
-            text="Deleting attendance")
+            text="Deleting attendance. This is still a WIP!")
 
 def done(update: Update, context: CallbackContext):
     current_msg["options"] = options
@@ -175,9 +176,9 @@ def main():
                     )
                 ],
             REQUIRE_REASON: [
-                MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_option_reason
-                    )
+                CallbackQueryHandler(
+                    retrieve_option_reason,
+                    pattern=f'^y$|^n$')
                 ]
         },
         fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
