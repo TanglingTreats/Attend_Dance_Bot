@@ -123,15 +123,26 @@ def edit_attendance(update: Update, context: CallbackContext):
     
 def end_attendance(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id,
-            text="Deleting attendance. This is still a WIP!")
+            parse_mode="Markdown",
+            text="Deleting attendance. This is still a *WIP*!")
 
 def done(update: Update, context: CallbackContext):
     current_msg["options"] = options
 
     print(current_msg)
+    text_to_send=(
+            f"*{current_msg['event_detail']}*"
+            f"\n\n"
+        )
+    for option in current_msg["options"]:
+        text_to_send += f"*{option['name']}*:\n\n\n"
 
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="You are done creating the attendance")
+
+    context.bot.send_message(chat_id=update.effective_chat.id,
+            parse_mode="Markdown",
+            text=text_to_send)
     return END
 
 def regular_choice(update: Update, context: CallbackContext) -> int:
@@ -162,26 +173,26 @@ def main():
         states = {
             ENTER_DATE: [
                 MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_date
+                    Filters.text & ~(Filters.command | Filters.regex('^[Dd]one$')), retrieve_event_date
                     )
                 ],
             ENTER_EVENT: [
                 MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_detail
+                    Filters.text & ~(Filters.command | Filters.regex('^[Dd]one$')), retrieve_event_detail
                     )
                 ],
             ENTER_OPTIONS: [
                 MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), retrieve_event_options
+                    Filters.text & ~(Filters.command | Filters.regex('^[Dd]one$')), retrieve_event_options
                     )
                 ],
             REQUIRE_REASON: [
                 CallbackQueryHandler(
                     retrieve_option_reason,
                     pattern=f'^y$|^n$')
-                ]
+                ],
         },
-        fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
+        fallbacks=[MessageHandler(Filters.regex('^[Dd]one$'), done)],
     )
 
 
