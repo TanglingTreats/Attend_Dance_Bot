@@ -1,6 +1,12 @@
+import re
 import logging
 import json
-from message_util import form_message_with_options
+from message_util import (
+        form_message_with_options,
+        get_message_index,
+        get_query_article,
+        get_all_articles
+        )
 from datetime import datetime
 from telegram import (
         Update, 
@@ -15,7 +21,8 @@ from telegram.ext import (
         MessageHandler,
         Filters,
         CallbackContext,
-        CallbackQueryHandler
+        CallbackQueryHandler,
+        InlineQueryHandler
     )
 
 with open("config.json") as json_data_file:
@@ -41,7 +48,7 @@ options = []
 
 current_msg = {}
 
-ENTER_DATE, ENTER_EVENT, ENTER_OPTIONS, REQUIRE_REASON = range(4)
+ENTER_EVENT, ENTER_OPTIONS, REQUIRE_REASON = range(3)
 
 END = ConversationHandler.END
 
@@ -63,21 +70,6 @@ def create_attendance(update: Update, context: CallbackContext):
 
     return ENTER_EVENT
 
-def retrieve_event_date(update: Update, context: CallbackContext):
-    text = update.message.text
-    reply = f'Creating an event on {text}'
-    update.message.reply_text(reply)
-
-    date_obj = datetime.strptime(text, "%d %b %Y")
-    print(date_obj)
-    current_msg['date'] = text
-
-    message = "Next, what's the event about?"
-    context.bot.send_message(chat_id=update.effective_chat.id,
-            text=message)
-    
-    return ENTER_EVENT
-
 def retrieve_event_detail(update: Update, context: CallbackContext):
     text = update.message.text
     reply = f'Event is about: {text}'
@@ -96,6 +88,7 @@ def retrieve_event_detail(update: Update, context: CallbackContext):
 def retrieve_event_options(update: Update, context: CallbackContext):
     global option
     option = {}
+
     text = update.message.text
     reply = f'\'{text}\' has been entered'
     update.message.reply_text(reply)
@@ -110,6 +103,8 @@ to supply additional information?"
     return REQUIRE_REASON
 
 def retrieve_option_reason(update: Update, context: CallbackContext):
+    global options
+
     text = update.callback_query.data
 
     option["require_reason"] = text
@@ -134,8 +129,9 @@ def end_attendance(update: Update, context: CallbackContext):
 def done(update: Update, context: CallbackContext):
     current_msg["options"] = options
 
-    print(current_msg)
     text_to_send = form_message_with_options(current_msg)
+
+    messages.append(current_msg)
 
     pub_msg_buttons = [[
         InlineKeyboardButton(text="Publish",
@@ -150,13 +146,33 @@ def done(update: Update, context: CallbackContext):
             parse_mode="Markdown",
             text=text_to_send,
             reply_markup=pub_msg_keeb)
+
+    clear_global_variables()
     return END
 
-def publish_message(update: Update, context: CallbackContext):
-    pub_option = update.callback_query.data.split(" ")[1]
-    print(pub_option)
-    pass
+def select_message_to_publish(update: Update, context: CallbackContext):
+    query = update.inline_query.query
 
+    results = []
+
+    if query == "" or re.match(r"^pub$", query):
+        results = get_all_articles(messages)
+    elif re.match(r"^pub [0-9]+$", query):
+        msg_index = int(get_message_index(query))
+        results = [get_query_article(messages, msg_index)]
+
+    update.inline_query.answer(results)
+
+def publish_message(update: Update, context: CallbackContext):
+    pub_option = get_message_index(update.callback_query.data)
+
+def clear_global_variables():
+    global current_msg
+    global options
+
+    current_msg={}
+    options=[]
+    
 def main():
     updater = Updater(token=data["bot"]["token"])
 
@@ -171,17 +187,11 @@ def main():
     end_attendance_handler = CommandHandler('end_attendance',
             end_attendance)
 
-    pub_msg_handler = CallbackQueryHandler(publish_message,
-            pattern='^pub [0-9]+$')
+    select_msg_handler = InlineQueryHandler(select_message_to_publish)
 
     conv_handler = ConversationHandler(
         entry_points=[create_attendance_handler],
         states = {
-            ENTER_DATE: [
-                MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^[Dd]one$')), retrieve_event_date
-                    )
-                ],
             ENTER_EVENT: [
                 MessageHandler(
                     Filters.text & ~(Filters.command | Filters.regex('^[Dd]one$')), retrieve_event_detail
@@ -208,7 +218,8 @@ def main():
     dispatcher.add_handler(edit_attendance_handler)
     dispatcher.add_handler(end_attendance_handler)
 
-    dispatcher.add_handler(pub_msg_handler)
+    # Inline Handlers
+    dispatcher.add_handler(select_msg_handler)
 
     # Conversation Handlers
     dispatcher.add_handler(conv_handler)
