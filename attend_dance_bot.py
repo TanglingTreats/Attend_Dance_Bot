@@ -1,5 +1,6 @@
 import logging
 import json
+from message_util import form_message_with_options
 from datetime import datetime
 from telegram import (
         Update, 
@@ -24,18 +25,20 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
         level=logging.INFO)
 
 keeb_options = [['Yes', 'No']]
-markup_keeb = ReplyKeyboardMarkup(keeb_options, one_time_keyboard=True)
 
-buttons = [[
-        InlineKeyboardButton(text=keeb_options[0][0], callback_data='y'),
-        InlineKeyboardButton(text=keeb_options[0][1], callback_data='n')
-    ]]
-inline_keeb = InlineKeyboardMarkup(buttons)
+# Yes No buttons
+yn_buttons = [[
+    InlineKeyboardButton(text=keeb_options[0][0], callback_data='y'),
+    InlineKeyboardButton(text=keeb_options[0][1], callback_data='n')
+]]
+yn_inline_keeb = InlineKeyboardMarkup(yn_buttons)
+
 
 messages = []
 
 option = {}
 options = []
+
 current_msg = {}
 
 ENTER_DATE, ENTER_EVENT, ENTER_OPTIONS, REQUIRE_REASON = range(4)
@@ -80,6 +83,8 @@ def retrieve_event_detail(update: Update, context: CallbackContext):
     reply = f'Event is about: {text}'
     update.message.reply_text(reply)
     
+    msgs_len = len(messages)
+    current_msg['index'] = msgs_len
     current_msg['event_detail'] = text
 
     message = "Next, what's are your options for this attendance list?"
@@ -100,7 +105,7 @@ def retrieve_event_options(update: Update, context: CallbackContext):
     message = "Does this option require attendees \
 to supply additional information?"
 
-    update.message.reply_text(message, reply_markup=inline_keeb)
+    update.message.reply_text(message, reply_markup=yn_inline_keeb)
 
     return REQUIRE_REASON
 
@@ -130,29 +135,27 @@ def done(update: Update, context: CallbackContext):
     current_msg["options"] = options
 
     print(current_msg)
-    text_to_send=(
-            f"*{current_msg['event_detail']}*"
-            f"\n\n"
-        )
-    for option in current_msg["options"]:
-        text_to_send += f"*{option['name']}*:\n\n\n"
+    text_to_send = form_message_with_options(current_msg)
+
+    pub_msg_buttons = [[
+        InlineKeyboardButton(text="Publish",
+            switch_inline_query=f"pub {current_msg['index']}"),
+    ]]
+    pub_msg_keeb = InlineKeyboardMarkup(pub_msg_buttons)
 
     context.bot.send_message(chat_id=update.effective_chat.id,
             text="You are done creating the attendance")
 
     context.bot.send_message(chat_id=update.effective_chat.id,
             parse_mode="Markdown",
-            text=text_to_send)
+            text=text_to_send,
+            reply_markup=pub_msg_keeb)
     return END
 
-def regular_choice(update: Update, context: CallbackContext) -> int:
-    """Ask the user for info about the selected predefined choice."""
-    text = update.message.text
-    context.user_data['choice'] = text
-    reply = f'{text}'
-    update.message.reply_text(reply)
-
-    return ENTER_EVENT
+def publish_message(update: Update, context: CallbackContext):
+    pub_option = update.callback_query.data.split(" ")[1]
+    print(pub_option)
+    pass
 
 def main():
     updater = Updater(token=data["bot"]["token"])
@@ -167,6 +170,9 @@ def main():
             edit_attendance)
     end_attendance_handler = CommandHandler('end_attendance',
             end_attendance)
+
+    pub_msg_handler = CallbackQueryHandler(publish_message,
+            pattern='^pub [0-9]+$')
 
     conv_handler = ConversationHandler(
         entry_points=[create_attendance_handler],
@@ -201,6 +207,8 @@ def main():
     dispatcher.add_handler(help_handler)
     dispatcher.add_handler(edit_attendance_handler)
     dispatcher.add_handler(end_attendance_handler)
+
+    dispatcher.add_handler(pub_msg_handler)
 
     # Conversation Handlers
     dispatcher.add_handler(conv_handler)
